@@ -1,13 +1,11 @@
 import streamlit as st
-from io import BytesIO
+import asyncio
 from src.services.workflows.file_processing import handling_documents
 from src.services.vectordb.pinecone_service import PineconeService
 from src.services.llm.llm_service import LLMService
 from src.schemas.endpoints.schema import QueryRequest
-import tempfile
-import os
 
-# Apply some custom styling using Streamlit's markdown
+# Apply custom styling using Streamlit's markdown
 st.markdown("""
     <style>
         .title {
@@ -75,8 +73,8 @@ with st.sidebar:
             file_name = uploaded_file.name
             file_extension = file_name.split(".")[-1].lower()
 
-            # Call the `handling_documents` function from the backend directly to process the document
-            extracted_text = handling_documents(contents, file_extension, file_name)
+            # Await handling_documents to properly get the result
+            extracted_text = asyncio.run(handling_documents(contents, file_extension, file_name))
 
             # Now, use the Pinecone service to create a namespace and insert documents
             pinecone_service = PineconeService()
