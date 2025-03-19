@@ -1,15 +1,21 @@
 import os
+import random, string, datetime
 from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_huggingface import HuggingFaceEmbeddings
 from src.utils.logger import get_logger
-import random, string, datetime
+from src.core.config import settings
 
 logger = get_logger(__name__)
 load_dotenv()
 
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+# Use when using .env file
+# PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+
+#Use when using streamlit secret file
+PINECONE_API_KEY = settings.PINECONE_API_KEY
+
 # embed_fn_pinecone = HuggingFaceEmbeddings(model_name='BAAI/bge-small-en-v1.5')
 embed_fn_pinecone = HuggingFaceEmbeddings(model_name='multi-qa-mpnet-base-dot-v1')
 
