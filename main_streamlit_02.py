@@ -1,11 +1,8 @@
 import streamlit as st
-from io import BytesIO
-from src.services.workflows.file_processing import handling_documents
-from src.services.vectordb.pinecone_service import PineconeService
-from src.services.llm.llm_service import LLMService
-from src.schemas.endpoints.schema import QueryRequest
-import tempfile
-import os
+import requests
+
+# Define FastAPI server URL (adjust this according to where your FastAPI server is running)
+API_URL = "http://127.0.0.1:8000"  # Local server URL, update if deployed
 
 # Apply some custom styling using Streamlit's markdown
 st.markdown("""
@@ -70,45 +67,29 @@ with st.sidebar:
 
     if uploaded_file:
         if st.button("Upload Document", key="upload_button", help="Click to upload the document"):
-            # Read file contents
-            contents = uploaded_file.read()
-            file_name = uploaded_file.name
-            file_extension = file_name.split(".")[-1].lower()
+            files = {"file": uploaded_file}
+            response = requests.post(f"{API_URL}/upload-file/", files=files)
 
-            # Call the `handling_documents` function from the backend directly to process the document
-            extracted_text = handling_documents(contents, file_extension, file_name)
-
-            # Now, use the Pinecone service to create a namespace and insert documents
-            pinecone_service = PineconeService()
-            pinecone_service.create_namespace()
-
-            # Insert the extracted documents into Pinecone
-            namespace_name = pinecone_service.insert_data(extracted_text)
-
-            # Store the namespace in session state
-            st.session_state.namespace_name = namespace_name
-            st.success("File uploaded and indexed successfully!")
+            if response.status_code == 200:
+                namespace_name = response.json()
+                st.session_state.namespace_name = namespace_name  # Store namespace in session state
+                st.success("File uploaded successfully!")
+            else:
+                st.error(f"Error: {response.text}")
 
 # Query input field with custom styling
 query = st.text_input("Enter your query:", key="query_input", help="Type your query related to the uploaded document.", label_visibility="collapsed", placeholder="What do you want to know?", max_chars=500)
 
 if query and "namespace_name" in st.session_state:
-    # Call the query processing function directly using `LLMService` and `PineconeService`
-    query_data = QueryRequest(query=query, namespace_name=st.session_state.namespace_name)
+    # Send query to FastAPI server for response using the stored namespace
+    query_data = {"query": query, "namespace_name": st.session_state.namespace_name}
+    response = requests.post(f"{API_URL}/query/", json=query_data)
 
-    # Get the retriever using Pinecone
-    pinecone_service = PineconeService()
-    retriever = pinecone_service.get_retriever(query_data.namespace_name)
-
-    # Use `LLMService` to get the chain and process the query
-    llm_service = LLMService()
-    chain = llm_service.get_chain(query_data.query, retriever)
-
-    # Generate the response using the chain
-    response = chain.invoke({'query': query_data.query}).content
-
-    # Display the response
-    st.markdown(f'<div class="query-response"><b>Response:</b><br>{response}</div>', unsafe_allow_html=True)
+    if response.status_code == 200:
+        result = response.json()
+        st.markdown(f'<div class="query-response"><b>Response:</b><br>{result["response"]}</div>', unsafe_allow_html=True)
+    else:
+        st.error(f"Error: {response.text}")
 
 elif query:
     st.warning("Please upload a document first to get a namespace.")
